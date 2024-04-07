@@ -2,7 +2,7 @@
 create table avito_banner."banner"
 (
     id         serial primary key,
-    content json,
+    content    varchar,
     is_active  boolean not null,
     feature_id bigint not null,
     created_dt timestamp default now() not null,

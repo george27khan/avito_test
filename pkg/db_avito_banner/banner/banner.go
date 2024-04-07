@@ -11,7 +11,7 @@ import (
 
 type Banner struct {
 	Id        int64
-	Content   []byte
+	Content   interface{}
 	IsActive  bool
 	FeatureId int64
 	Tags      []int64
@@ -77,20 +77,22 @@ func (b *Banner) Delete(ctx context.Context) error {
 func (b *Banner) Check(ctx context.Context) error {
 	var (
 		row pgx.Row
-		cnt int
+		cnt int8
 	)
 	conn, err := db.PGPool.Acquire(ctx)
 	defer conn.Release()
 	if err != nil {
 		return err
 	}
-	query := "select 1 from avito_banner.tag_feature tf" +
-		"join avito_banner.banner b on b.feature_id = tf.feature_id" +
-		"where tf.tag_id = $1 and tf.feature_id = $2)"
+	query := "select count(1) from avito_banner.tag_feature tf " +
+		"join avito_banner.banner b on b.feature_id = tf.feature_id " +
+		"where tf.tag_id = $1 and tf.feature_id = $2"
 
 	for _, tag := range b.Tags {
 		row = conn.QueryRow(ctx, query, tag, b.FeatureId)
-		if err := row.Scan(cnt); err != nil {
+		if err := row.Scan(&cnt); err != nil {
+			return fmt.Errorf("Ошибка при поиске создаваемого банера - %v.", err.Error())
+		} else if cnt > 0 {
 			return fmt.Errorf("Баннер для тега %v и фичи %v уже определен.", tag, b.FeatureId)
 		}
 	}
@@ -101,19 +103,22 @@ func (b *Banner) Check(ctx context.Context) error {
 func Get(ctx context.Context, tag int64, feature int64) (Banner, error) {
 	var (
 		banner Banner
+		lTag   int64
 	)
 	conn, err := db.PGPool.Acquire(ctx)
 	defer conn.Release()
 	if err != nil {
 		return banner, err
 	}
-	query := "select b.id, tf.tag_id, b.feature_id, b.content, b.is_active, b.created_at, b.updated_at" +
-		"from avito_banner.tag_feature tf" +
-		"join avito_banner.banner b on b.feature_id = tf.feature_id" +
-		"where tf.tag_id = $1 and tf.feature_id = $2"
+	query := "select b.id, tf.tag_id, b.feature_id, b.content, b.is_active, b.created_dt, b.updated_dt " +
+		"from avito_banner.tag_feature tf " +
+		"join avito_banner.banner b on b.feature_id = tf.feature_id " +
+		"where tf.tag_id = $1 and tf.feature_id = $2 "
 	row := conn.QueryRow(ctx, query, tag, feature)
-	if err := row.Scan(&banner.Id, &banner.Tags, &banner.FeatureId, &banner.Content, &banner.IsActive, &banner.CreatedDt, &banner.UpdatedDt); err != nil {
+	if err := row.Scan(&banner.Id, &lTag, &banner.FeatureId, &banner.Content, &banner.IsActive, &banner.CreatedDt, &banner.UpdatedDt); err != nil {
+		fmt.Println(err)
 		return banner, fmt.Errorf("Баннер для тега %v и фичи %v отсутствует.", tag, feature)
 	}
+	banner.Tags = []int64{lTag}
 	return banner, nil
 }

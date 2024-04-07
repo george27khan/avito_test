@@ -52,9 +52,9 @@ func CheckData(ctx context.Context, tags []int64, feature int64) error {
 	if err != nil {
 		return err
 	}
-	query := "select 1 from avito_banner.tag_feature tf" +
-		"join avito_banner.banner b on b.feature_id = tf.feature_id" +
-		"where tf.tag_id = $1 and tf.feature_id = $2)"
+	query := "select 1 from avito_banner.tag_feature tf " +
+		"join avito_banner.banner b on b.feature_id = tf.feature_id " +
+		"where tf.tag_id = $1 and tf.feature_id = $2"
 
 	for _, tag := range tags {
 		row = conn.QueryRow(ctx, query, tag, feature)

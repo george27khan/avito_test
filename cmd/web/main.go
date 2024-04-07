@@ -15,7 +15,7 @@ import (
 func server() {
 	r := gin.Default()
 	r.GET("/user_banner", banner_handler.PostBanner)
-	r.GET("/banner", banner_handler.PostBanner)
+	r.GET("/banner", banner_handler.GetBanner)
 	r.POST("/banner", banner_handler.PostBanner)
 	r.PATCH("/banner/:id", banner_handler.PostBanner)
 	r.DELETE("/banner/:id", banner_handler.PostBanner)
@@ -71,12 +71,12 @@ func getBanner() {
 		return
 	}
 
-	fmt.Printf("%s", data) // печатаем ответ как строку
+	fmt.Println(string(data)) // печатаем ответ как строку
 }
 
 func main() {
 	go server()
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 2)
 	postBanner()
-	getBanner()
+	//getBanner()
 }
