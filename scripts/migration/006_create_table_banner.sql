@@ -1,12 +1,15 @@
 -- Write your migrate up statements here
-create table avito."banner"
+create table avito_banner."banner"
 (
-    id         bigint primary key,
+    id         serial primary key,
     json_value json,
-    created_dt timestamp default now() not null
+    is_active  boolean not null,
+    id_feature bigint not null constraint fk_banner_feature references avito_banner."feature",
+    created_dt timestamp default now() not null,
+    updated_dt timestamp default now() not null
 );
 
-alter table avito."banner"
+alter table avito_banner."banner"
     owner to postgres;
 ---- create above / drop below ----
-drop table avito."banner";
+drop table avito_banner."banner";

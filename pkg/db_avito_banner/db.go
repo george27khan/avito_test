@@ -1,4 +1,4 @@
-package main
+package db_avito_banner
 
 import (
 	"context"
@@ -109,6 +109,6 @@ func init() {
 }
 
 func main() {
-	InitDB()
-	//DropDB()
+	//InitDB()
+	DropDB()
 }

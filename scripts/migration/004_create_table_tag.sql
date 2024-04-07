@@ -1,11 +1,11 @@
 -- Write your migrate up statements here
-create table avito."tag"
+create table avito_banner."tag"
 (
-    id         bigint primary key,
+    id         serial primary key,
     created_dt timestamp default now() not null
 );
 
-alter table avito."tag"
+alter table avito_banner."tag"
     owner to postgres;
 ---- create above / drop below ----
-drop table avito."tag";
+drop table avito_banner."tag";

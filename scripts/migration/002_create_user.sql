@@ -1,3 +1,3 @@
-create user avito;
+create user avito_banner;
 ---- create above / drop below ----
-drop user avito;
+drop user avito_banner;
