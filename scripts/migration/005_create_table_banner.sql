@@ -2,13 +2,13 @@
 create table avito_banner."banner"
 (
     id         serial primary key,
-    json_value json,
+    content json,
     is_active  boolean not null,
-    id_feature bigint not null constraint fk_banner_feature references avito_banner."feature",
+    feature_id bigint not null,
     created_dt timestamp default now() not null,
     updated_dt timestamp default now() not null
 );
-
+create index idx_fk_banner_feature on avito_banner."tag_feature" (feature_id);
 alter table avito_banner."banner"
     owner to postgres;
 ---- create above / drop below ----
