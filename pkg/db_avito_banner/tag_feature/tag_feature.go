@@ -9,10 +9,10 @@ import (
 )
 
 type TagFeauture struct {
-	Id        int64
-	IdTag     int64
-	IdFeature int64
-	CreatedDt time.Time
+	TagFeatureId int64
+	TagId        int64
+	FeatureId    int64
+	CreatedDt    time.Time
 }
 
 // Insert функция для добавление записи в таблицу
@@ -33,8 +33,8 @@ func (tf *TagFeauture) Delete(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	query := "delete from avito_banner.tag_feature t where t.id = $1"
-	_, err = conn.Exec(ctx, query, tf.Id)
+	query := "delete from avito_banner.tag_feature t where t.tag_feature_id = $1"
+	_, err = conn.Exec(ctx, query, tf.TagFeatureId)
 	if err := conn.Ping(ctx); err != nil {
 		return err
 	}

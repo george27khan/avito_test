@@ -30,35 +30,37 @@ func postBanner() {
 		Content   string `json:"content"`
 		IsActive  bool   `json:"is_active"`
 	}
+	for i := 1; i < 6; i++ {
+		test := PostBody{TagIds: []int{1 * i, 100 * i},
+			FeatureId: i,
+			Content:   "{\"title\": \"some_title\", \"text\": \"some_text\", \"url\": \"some_url\"}",
+			IsActive:  true}
+		// Кодируем структуру User в JSON
+		bytesRepresentation, err := json.Marshal(test)
+		if err != nil {
+			log.Fatalln(err)
+		}
 
-	test := PostBody{TagIds: []int{0},
-		FeatureId: 0,
-		Content:   "{\"title\": \"some_title\", \"text\": \"some_text\", \"url\": \"some_url\"}",
-		IsActive:  true}
-	// Кодируем структуру User в JSON
-	bytesRepresentation, err := json.Marshal(test)
-	if err != nil {
-		log.Fatalln(err)
+		resp, err := http.Post("http://localhost:8080/banner", "application/json", bytes.NewBuffer(bytesRepresentation))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		defer resp.Body.Close() // закрываем тело ответа после работы с ним
+
+		data, err := io.ReadAll(resp.Body) // читаем ответ
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		fmt.Printf("%s", data) // печатаем ответ как строку
 	}
-
-	resp, err := http.Post("http://localhost:8080/banner", "application/json", bytes.NewBuffer(bytesRepresentation))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer resp.Body.Close() // закрываем тело ответа после работы с ним
-
-	data, err := io.ReadAll(resp.Body) // читаем ответ
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	fmt.Printf("%s", data) // печатаем ответ как строку
 }
 
 func getBanner() {
-	resp, err := http.Get("http://localhost:8080/banner?feature_id=0&tag_id=0")
+	//resp, err := http.Get("http://localhost:8080/banner?tag_id=2&limit=4&offset=2")
+	resp, err := http.Get("http://localhost:8080/banner?feature_id=2&limit=4&offset=0")
+
 	if err != nil {
 		log.Println(err)
 		return
@@ -72,11 +74,12 @@ func getBanner() {
 	}
 
 	fmt.Println(string(data)) // печатаем ответ как строку
+
 }
 
 func main() {
 	go server()
 	time.Sleep(time.Second * 2)
-	postBanner()
-	//getBanner()
+	//postBanner()
+	getBanner()
 }
