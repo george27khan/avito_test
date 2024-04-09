@@ -47,6 +47,37 @@ func Connect(ctx context.Context) *pgx.Conn {
 	return conn
 }
 
+// ConnectPool возвращает соединение из пула
+func ConnectPool(ctx context.Context) (*pgxpool.Conn, error) {
+	conn, err := PGPool.Acquire(ctx)
+	if err != nil {
+		return conn, err
+	}
+	return conn, nil
+}
+
+// OpenTx функция возвращает открытую транзакцию
+func OpenTx(ctx context.Context, conn *pgxpool.Conn) (pgx.Tx, error) {
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
+// ConnectPoolTrx возвращает соединение с открытой транзакцией из пула
+func ConnectPoolTrx(ctx context.Context) (*pgxpool.Conn, pgx.Tx, error) {
+	conn, err := ConnectPool(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return conn, tx, nil
+}
+
 func getMigrator(ctx context.Context, conn *pgx.Conn) *migrate.Migrator {
 	migrator, err := migrate.NewMigrator(ctx, conn, "avito_test")
 	if err != nil {

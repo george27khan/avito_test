@@ -23,24 +23,17 @@ func toInt(val string) (int64, error) {
 
 // PostBanner добавление баннера
 func PostBanner(c *gin.Context) {
-	var (
-		body PostBody
-	)
-	if err := c.ShouldBindJSON(&body); err != nil {
+	var banner bn.Banner
+	if err := c.ShouldBindJSON(&banner); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-	banner := bn.Banner{Content: body.Content,
-		IsActive:  body.IsActive,
-		FeatureId: body.FeatureId,
-		TagIds:    body.TagIds,
 	}
 
 	if err := banner.Check(context.Background()); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	bannerId, err := banner.Insert(context.Background())
+	bannerId, err := banner.Create(context.Background())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -123,14 +116,96 @@ func GetBanner(c *gin.Context) {
 			return
 		}
 	}
+}
 
-	//if err := banner.Ceck(context.Background()); err != nil {
-	//	c.JSON(http.StatusBadRequest, err.Error())
+// PatchBanner изменение баннера
+func PatchBanner(c *gin.Context) {
+	var banner bn.Banner
+	bannerId, err := toInt(c.Params.ByName("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := c.ShouldBindJSON(&banner); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	//проверка существования bannerId
+	if err := bn.Exist(context.Background(), bannerId); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	//обновление данных баннера
+	if err := banner.Update(context.Background(), bannerId); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	//token := c.GetHeader("token")
+
+	//if tag != "" && feature != "" {
+	//	tagInt, err1 := toInt(tag)
+	//	featureInt, err2 := toInt(feature)
+	//	if err1 == nil && err2 == nil {
+	//		if banner, err := bn.Get(context.Background(), tagInt, featureInt); err != nil {
+	//			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	//			return
+	//		} else {
+	//			bannerList = append(bannerList, banner)
+	//			c.JSON(http.StatusOK, bannerList)
+	//			return
+	//		}
+	//	}
+	//} else if tag != "" {
+	//	var (
+	//		tagInt, limitInt, offsetInt int64
+	//		err                         error
+	//	)
+	//	if tagInt, err = toInt(tag); err != nil {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный tag_id=%v - %v", tag, err.Error())})
+	//		return
+	//	}
+	//	if limitInt, err = toInt(limit); err != nil && limit != "" {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный limit=%v - %v", limit, err.Error())})
+	//		return
+	//	}
+	//	if offsetInt, err = toInt(offset); err != nil && offset != "" {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный offset=%v - %v", offset, err.Error())})
+	//		return
+	//	}
+	//	if bannerList, err := bn.GetByTag(context.Background(), tagInt, limitInt, offsetInt); err != nil {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	//		return
+	//	} else {
+	//		c.JSON(http.StatusOK, bannerList)
+	//		return
+	//	}
+	//} else if feature != "" {
+	//	var (
+	//		featureInt, limitInt, offsetInt int64
+	//		err                             error
+	//	)
+	//	if featureInt, err = toInt(feature); err != nil {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный feature_id=%v - %v", feature, err.Error())})
+	//		return
+	//	}
+	//	if limitInt, err = toInt(limit); err != nil && limit != "" {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный limit=%v - %v", limit, err.Error())})
+	//		return
+	//	}
+	//	if offsetInt, err = toInt(offset); err != nil && offset != "" {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный offset=%v - %v", offset, err.Error())})
+	//		return
+	//	}
+	//	if bannerList, err := bn.GetByFeature(context.Background(), featureInt, limitInt, offsetInt); err != nil {
+	//		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	//		return
+	//	} else {
+	//		c.JSON(http.StatusOK, bannerList)
+	//		return
+	//	}
 	//}
-	//idBanner, err := banner.Insert(context.Background())
-	//if err != nil {
-	//	c.String(http.StatusInternalServerError, err.Error())
-	//}
-	//c.JSON(http.StatusCreated, gin.H{"banner_id": idBanner, "answer": http.StatusInternalServerError})
 
 }

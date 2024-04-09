@@ -19,8 +19,8 @@ type Banner struct {
 	UpdatedAt time.Time   `json:"updated_at"`
 }
 
-// Insert функция для добавление записи в таблицу
-func (b *Banner) Insert(ctx context.Context) (int64, error) {
+// Create функция для создания баннера
+func (b *Banner) Create(ctx context.Context) (int64, error) {
 	var bannerId int64
 	conn, err := db.PGPool.Acquire(ctx)
 	if err != nil {
@@ -95,6 +95,26 @@ func (b *Banner) Check(ctx context.Context) error {
 		} else if cnt > 0 {
 			return fmt.Errorf("Баннер для тега %v и фичи %v уже определен.", tag, b.FeatureId)
 		}
+	}
+	return nil
+}
+
+// Exist функция проверки существования баннера в базе
+func Exist(ctx context.Context, bannerId int64) error {
+	var (
+		cnt int8
+	)
+	conn, err := db.PGPool.Acquire(ctx)
+	defer conn.Release()
+	if err != nil {
+		return err
+	}
+	query := "select count(1) from avito_banner.banner b where b.banner_id = $1"
+	row := conn.QueryRow(ctx, query, bannerId)
+	if err := row.Scan(&cnt); err != nil {
+		return fmt.Errorf("Ошибка при поиске банера: %v.", err.Error())
+	} else if cnt == 0 {
+		return fmt.Errorf("Баннер не найден.")
 	}
 	return nil
 }
@@ -210,4 +230,41 @@ func GetByFeature(ctx context.Context, feature int64, limit int64, offset int64)
 		bannerList = append(bannerList, banner)
 	}
 	return bannerList, nil
+}
+
+// Update функция обновления данных банера
+func (b *Banner) Update(ctx context.Context, bannerId int64) error {
+	var (
+		tagId, featureId, isActive int64
+	)
+	conn, trx, err := db.ConnectPoolTrx(ctx)
+	if err != nil {
+		return fmt.Errorf("DB connect error: ", err.Error())
+	}
+	defer conn.Release()
+	defer func() {
+		if err != nil {
+			trx.Rollback(ctx)
+		} else {
+			trx.Commit(ctx)
+		}
+	}()
+	// поиск активных связей баннера
+	query := "select tf.tag_id, tf.feature_id, tf.is_active " +
+		"from avito_banner.banner b " +
+		"join avito_banner.tag_feature tf on tf.feature_id = b.feature_id " +
+		"where b.banner_id = $1"
+	rows, err := conn.Query(ctx, query, bannerId)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		if err = rows.Scan(&tagId, &featureId, &isActive); err != nil {
+			return fmt.Errorf("Ошибка чтения данных из таблицы tag_feature", err.Error())
+		}
+	}
+	//return bannerList, nil
+	return nil
 }

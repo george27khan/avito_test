@@ -1,8 +1,8 @@
 -- Write your migrate up statements here
 create table avito_banner."banner"
 (
-    banner_id         serial primary key,
-    content    varchar,
+    banner_id  serial primary key,
+    content    json,
     is_active  boolean not null,
     feature_id bigint not null,
     created_at timestamp default now() not null,
