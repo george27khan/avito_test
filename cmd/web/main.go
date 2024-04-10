@@ -71,18 +71,20 @@ func getBanner() {
 }
 
 func patchBanner() {
-	test := bn.Banner{
-		//TagIds: []int64{int64(1), int64(100)},
-		//FeatureId: int64(1),
-		Content:  "{\"title\": \"some_title\", \"text\": \"some_text\", \"url\": \"some_url\"}",
-		IsActive: true}
-	// Кодируем структуру User в JSON
-	bytesRepresentation, err := json.Marshal(test)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	//test := bn.Banner{
+	//	TagIds: []int64{int64(1), int64(100)},
+	//	//FeatureId: nil,
+	//	Content:  "{\"title\": \"some_title\", \"text\": \"some_text\", \"url\": \"some_url\"}",
+	//	IsActive: false}
+	////Кодируем структуру User в JSON
+	//bytesRepresentation, err := json.Marshal(test)
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	bytesRepresentation := []byte("{\n\"tag_ids\": [1,100,1000],\n\"feature_id\": 1,\n\"content\": \"{\\\"title\\\": \\\"some_title111\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\",\n\"is_active\": false\n}")
+
 	// Создаем новый HTTP-запрос с методом POST
-	req, err := http.NewRequest("PATCH", "http://localhost:8080/banner/77", bytes.NewBuffer(bytesRepresentation))
+	req, err := http.NewRequest("PATCH", "http://localhost:8080/banner/1", bytes.NewBuffer(bytesRepresentation))
 	if err != nil {
 		log.Println("Ошибка при создании запроса:", err)
 		return
@@ -114,7 +116,7 @@ func patchBanner() {
 func main() {
 	go server()
 	time.Sleep(time.Second * 2)
-	postBanner()
+	//postBanner()
 	//getBanner()
-	//patchBanner()
+	patchBanner()
 }

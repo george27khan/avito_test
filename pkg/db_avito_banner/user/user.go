@@ -10,10 +10,10 @@ import (
 
 // User тип для представления записи из таблицы employee
 type User struct {
-	Id          int64
-	UserName    string
-	CreatedDt   time.Time
-	CorrectedDt time.Time
+	Id        int64
+	UserName  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // Insert функция для добавление записи в таблицу
@@ -23,12 +23,12 @@ func (u *User) Insert(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	query := "INSERT INTO avito_banner.user(user_name, create_dt, corrected_dt) VALUES (@user_name, @create_dt, @corrected_dt)"
+	query := "INSERT INTO avito_banner.user(user_name, created_at, updated_at) VALUES (@user_name, @created_at, @updated_at)"
 
 	args := pgx.NamedArgs{
-		"user_name":    u.UserName,
-		"create_dt":    u.CreatedDt,
-		"corrected_dt": u.CorrectedDt,
+		"user_name":  u.UserName,
+		"created_at": u.CreatedAt,
+		"updated_at": u.UpdatedAt,
 	}
 	if res, err := conn.Exec(ctx, query, args); err != nil {
 		fmt.Println(err)
@@ -47,7 +47,7 @@ func (u *User) Delete(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	query := "delete from avito_banner.user t where t.id = $1"
+	query := "delete from avito_banner.user t where t.user_id = $1"
 	_, err = conn.Exec(ctx, query, u.Id)
 	if err := conn.Ping(ctx); err != nil {
 		return err

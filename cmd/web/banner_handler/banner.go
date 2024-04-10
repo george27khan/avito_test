@@ -1,7 +1,9 @@
 package banner_handler
 
 import (
+	db "avito_test/pkg/db_avito_banner"
 	bn "avito_test/pkg/db_avito_banner/banner"
+	tf "avito_test/pkg/db_avito_banner/tag_feature"
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -29,7 +31,7 @@ func PostBanner(c *gin.Context) {
 		return
 	}
 
-	if err := banner.Check(context.Background()); err != nil {
+	if err := banner.CheckTag(context.Background()); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -58,7 +60,7 @@ func GetBanner(c *gin.Context) {
 		tagInt, err1 := toInt(tag)
 		featureInt, err2 := toInt(feature)
 		if err1 == nil && err2 == nil {
-			if banner, err := bn.Get(context.Background(), tagInt, featureInt); err != nil {
+			if banner, err := bn.GetByTagFeature(context.Background(), tagInt, featureInt); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			} else {
@@ -118,31 +120,84 @@ func GetBanner(c *gin.Context) {
 	}
 }
 
+// BannerLink структура для PatchBanner чтобы определять null значения
+type BannerLink struct {
+	TagIds    []int64 `json:"tag_ids"`
+	FeatureId *int64  `json:"feature_id"`
+	Content   *string `json:"content"`
+	IsActive  *bool   `json:"is_active"`
+}
+
 // PatchBanner изменение баннера
 func PatchBanner(c *gin.Context) {
-	var banner bn.Banner
+	var bannerLink BannerLink
+	ctx := context.Background()
+	conn, tx, err := db.ConnectPoolTrx(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer conn.Release()
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+
+		} else {
+			tx.Commit(ctx)
+		}
+	}()
 	bannerId, err := toInt(c.Params.ByName("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := c.ShouldBindJSON(&banner); err != nil {
+	//чтение тала запроса
+	if err = c.ShouldBindJSON(&bannerLink); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	//проверка существования bannerId
-	if err := bn.Exist(context.Background(), bannerId); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	if err = bn.Exist(context.Background(), conn, bannerId); err != nil {
+		c.Status(http.StatusNotFound)
 		return
 	}
 
-	//обновление данных баннера
-	if err := banner.Update(context.Background(), bannerId); err != nil {
+	banner, err := bn.Get(ctx, conn, bannerId)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	//проверка существования фичи для баннера
+	if bannerLink.FeatureId != nil && *bannerLink.FeatureId != banner.FeatureId {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Для баннера %v не определена фича %v", bannerId, *bannerLink.FeatureId)})
+		return
+	}
+
+	//обновляем поля баннера
+	if bannerLink.IsActive != nil && banner.IsActive != *bannerLink.IsActive {
+		if err = banner.UpdateField(ctx, tx, "is_active", *bannerLink.IsActive); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if bannerLink.Content != nil && banner.Content != *bannerLink.Content {
+		if err = banner.UpdateField(ctx, tx, "content", bannerLink.Content); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	if bannerLink.FeatureId != nil && bannerLink.TagIds != nil {
+		if err = tf.MergeTags(ctx, tx, bannerLink.TagIds, *bannerLink.FeatureId, bannerId); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	c.Status(http.StatusOK)
 	//token := c.GetHeader("token")
 
 	//if tag != "" && feature != "" {
