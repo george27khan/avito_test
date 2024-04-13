@@ -1,8 +1,8 @@
 package main
 
 import (
-	"avito_test/cmd/web/banner_handler"
-	bn "avito_test/pkg/db_avito_banner/banner"
+	"avito_test/internal/app/handlers"
+	bn "avito_test/pkg/postgres_db/banner"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -24,15 +24,15 @@ func server() {
 	r := gin.Default()
 
 	//отключение middleware для аутентификации
-	r.GET("/authentication", banner_handler.GetToken)
+	r.GET("/authentication", handlers.GetToken)
 
-	r.Use(banner_handler.AuthMiddleware())
-	r.GET("/user_banner", banner_handler.GetUserBanner)
-	r.GET("/banner_version", banner_handler.GetBannerVersion)
-	r.GET("/banner", banner_handler.GetBanner)
-	r.POST("/banner", banner_handler.PostBanner)
-	r.PATCH("/banner/:id", banner_handler.PatchBanner)
-	r.DELETE("/banner/:id", banner_handler.DeleteBanner)
+	r.Use(handlers.AuthMiddleware())
+	r.GET("/user_banner", handlers.GetUserBanner)
+	r.GET("/banner_version", handlers.GetBannerVersion)
+	r.GET("/banner", handlers.GetBanner)
+	r.POST("/banner", handlers.PostBanner)
+	r.PATCH("/banner/:id", handlers.PatchBanner)
+	r.DELETE("/banner/:id", handlers.DeleteBanner)
 
 	r.Run("localhost:8080") //63342
 }
@@ -269,7 +269,7 @@ func Authentication(username string, password string) (token string) {
 
 func main() {
 	load_env()
-	go server()
+	server()
 	time.Sleep(time.Second * 2)
 	//postBanner()//++
 	//getBanner()//+

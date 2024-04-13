@@ -27,12 +27,12 @@ func (c *BannerContentHist) initVersion(ctx context.Context, tx pgx.Tx) error {
 // Insert функция для создания контента баннера в версионировании
 func (c *BannerContentHist) Insert(ctx context.Context, tx pgx.Tx) error {
 	if err := c.initVersion(ctx, tx); err != nil {
-		return fmt.Errorf("Insert (%v)", err.Error())
+		return fmt.Errorf("в Insert (%v)", err.Error())
 	}
 	query := "INSERT INTO avito_banner.banner_content_hist(banner_id, content, version) VALUES ($1, $2, $3) "
 
 	if _, err := tx.Exec(ctx, query, c.BannerId, c.Content, c.Version); err != nil {
-		return fmt.Errorf("Insert ошибка создания записи баннера в версионировании (%v)", err.Error())
+		return fmt.Errorf("в Insert ошибка создания записи баннера в версионировании (%v)", err.Error())
 	}
 	return nil
 }

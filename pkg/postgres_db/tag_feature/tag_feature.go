@@ -1,7 +1,7 @@
 package tag_feature
 
 import (
-	db "avito_test/pkg/db_avito_banner"
+	db "avito_test/pkg/postgres_db"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
@@ -22,7 +22,7 @@ func Insert(ctx context.Context, tx pgx.Tx, tags []int64, feature int64) error {
 	query := "INSERT INTO avito_banner.tag_feature(tag_id, feature_id) VALUES ($1, $2)"
 	for _, tag := range tags {
 		if _, err := tx.Exec(ctx, query, tag, feature); err != nil {
-			return fmt.Errorf("Insert ошибка создания записи тега (%v)", err.Error())
+			return fmt.Errorf("в Insert ошибка создания записи тега (%v)", err.Error())
 		}
 	}
 	return nil

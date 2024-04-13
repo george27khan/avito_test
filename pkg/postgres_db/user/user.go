@@ -1,7 +1,7 @@
 package user
 
 import (
-	db "avito_test/pkg/db_avito_banner"
+	db "avito_test/pkg/postgres_db"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
@@ -58,7 +58,7 @@ func (u *User) Delete(ctx context.Context) error {
 }
 
 // Get функция для поиска пользователя
-func Get(ctx context.Context, user_name string) (User, error) {
+func Get(ctx context.Context, userName string) (User, error) {
 	var u User
 	conn, err := db.PGPool.Acquire(ctx)
 	defer conn.Release()
@@ -66,13 +66,13 @@ func Get(ctx context.Context, user_name string) (User, error) {
 		return u, err
 	}
 	query := "select user_id, user_name, password, is_admin, created_at, updated_at from avito_banner.user t where t.user_name = $1"
-	if err := conn.QueryRow(ctx, query, user_name).Scan(&u.UserId, &u.UserName, &u.Password, &u.IsAdmin, &u.CreatedAt, &u.UpdatedAt); err != nil {
+	if err := conn.QueryRow(ctx, query, userName).Scan(&u.UserId, &u.UserName, &u.Password, &u.IsAdmin, &u.CreatedAt, &u.UpdatedAt); err != nil {
 		return u, err
 	}
 	return u, nil
 }
 
-// Delete функция для удаления записи из таблицы
+// VerifyPassword функция для проверки пароля
 func (u *User) VerifyPassword(password string) (ok bool) {
 	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
 		return

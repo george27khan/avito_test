@@ -9,6 +9,7 @@ import (
 
 var secretKey = os.Getenv("SECRET_KEY_TOKEN")
 
+// GetToken функция генерации токена
 func GetToken(userName string, password string, isAdmin bool) (token string, err error) {
 	tokenClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_name": userName,
@@ -23,10 +24,11 @@ func GetToken(userName string, password string, isAdmin bool) (token string, err
 	return
 }
 
+// ParseToken функция парсинга данных из токена
 func ParseToken(tokenStr string) (claims jwt.MapClaims, err error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("в Unexpected signing method (%v)", token.Header["alg"])
 		}
 		return []byte(secretKey), nil
 	})

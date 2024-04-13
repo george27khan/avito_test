@@ -1,8 +1,8 @@
 package main
 
 import (
-	db "avito_test/pkg/db_avito_banner"
-	"avito_test/pkg/db_avito_banner/user"
+	db "avito_test/pkg/postgres_db"
+	"avito_test/pkg/postgres_db/user"
 	"context"
 	"fmt"
 	"github.com/joho/godotenv"

@@ -1,12 +1,10 @@
-package banner_handler
+package handlers
 
 import (
-	"avito_test/pkg/auth"
-	db "avito_test/pkg/db_avito_banner"
-	bn "avito_test/pkg/db_avito_banner/banner"
-	bch "avito_test/pkg/db_avito_banner/banner_content_hist"
-	tf "avito_test/pkg/db_avito_banner/tag_feature"
-	usr "avito_test/pkg/db_avito_banner/user"
+	db "avito_test/pkg/postgres_db"
+	bn "avito_test/pkg/postgres_db/banner"
+	bch "avito_test/pkg/postgres_db/banner_content_hist"
+	tf "avito_test/pkg/postgres_db/tag_feature"
 	"avito_test/pkg/redis"
 	"context"
 	"encoding/json"
@@ -40,6 +38,7 @@ type ContentCash struct {
 	isActive bool   `json:"is_active"`
 }
 
+// toInt функция преобразования в ште64
 func toInt(val string) (int64, error) {
 	res, err := strconv.ParseInt(val, 10, 64)
 	return res, err
@@ -425,50 +424,4 @@ func DeleteBanner(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
-}
-
-func GetToken(c *gin.Context) {
-	ctx := context.Background()
-	userName, password, ok := c.Request.BasicAuth()
-	if !ok {
-		c.Status(http.StatusBadRequest)
-		return
-	}
-	user, err := usr.Get(ctx, userName)
-	if err != nil || !user.VerifyPassword(password) {
-		c.Status(http.StatusUnauthorized)
-		return
-	} else {
-		if token, err := auth.GetToken(user.UserName, user.Password, user.IsAdmin); err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		} else {
-			c.Writer.Header().Set("token", token)
-			c.Status(http.StatusOK)
-			return
-		}
-	}
-}
-
-func Auth(c *gin.Context) {
-	token := c.GetHeader("token")
-	if token == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	claims, err := auth.ParseToken(token)
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	if time.Now().Unix() > int64(claims["exp"].(float64)) {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	c.Set("is_admin", claims["is_admin"])
-}
-
-func AuthMiddleware() gin.HandlerFunc {
-	return Auth
 }

@@ -1,4 +1,4 @@
-package db_avito_banner
+package postgres_db
 
 import (
 	"context"

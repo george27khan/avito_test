@@ -1,9 +1,9 @@
 package banner
 
 import (
-	db "avito_test/pkg/db_avito_banner"
-	bch "avito_test/pkg/db_avito_banner/banner_content_hist"
-	tf "avito_test/pkg/db_avito_banner/tag_feature"
+	db "avito_test/pkg/postgres_db"
+	bch "avito_test/pkg/postgres_db/banner_content_hist"
+	tf "avito_test/pkg/postgres_db/tag_feature"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
@@ -31,9 +31,9 @@ func (b *Banner) Insert(ctx context.Context) (int64, error) {
 	defer conn.Release()
 	defer func() {
 		if err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 		} else {
-			tx.Commit(ctx)
+			_ = tx.Commit(ctx)
 		}
 	}()
 
