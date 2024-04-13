@@ -22,12 +22,11 @@ func load_env() {
 
 func server() {
 	r := gin.Default()
-	authorized := r.Group("/authentication")
-	authorized.Use()
-	{
-		r.GET("/authentication", banner_handler.GetToken)
-	}
-	r.Use(banner_handler.AuthenticationMiddleware())
+
+	//отключение middleware для аутентификации
+	r.GET("/authentication", banner_handler.GetToken)
+
+	r.Use(banner_handler.AuthMiddleware())
 	r.GET("/user_banner", banner_handler.GetUserBanner)
 	r.GET("/banner_version", banner_handler.GetBannerVersion)
 	r.GET("/banner", banner_handler.GetBanner)
@@ -39,6 +38,8 @@ func server() {
 }
 
 func postBanner() {
+	token := Authentication("admin_1", "admin_1")
+
 	for i := 1; i < 6; i++ {
 		test := bn.Banner{TagIds: []int64{int64(1 * i), int64(100 * i)},
 			FeatureId: int64(i),
@@ -49,39 +50,70 @@ func postBanner() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-
-		resp, err := http.Post("http://localhost:8080/banner", "application/json", bytes.NewBuffer(bytesRepresentation))
+		req, err := http.NewRequest("POST", "http://localhost:8080/banner", bytes.NewBuffer(bytesRepresentation))
 		if err != nil {
-			log.Println(err)
+			log.Println("Ошибка при создании запроса:", err)
 			return
 		}
-		defer resp.Body.Close() // закрываем тело ответа после работы с ним
+		// Устанавливаем заголовки запроса
+		req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+		req.Header.Set("token", token)
 
-		data, err := io.ReadAll(resp.Body) // читаем ответ
+		// Отправляем запрос
+		client := &http.Client{}    // создаем http клиент
+		resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
 		if err != nil {
-			log.Println(err)
+			log.Println("Ошибка при выполнении запроса: ", err)
 			return
 		}
-		fmt.Printf("%s", data) // печатаем ответ как строку
+		defer resp.Body.Close() // не забываем закрыть тело
+
+		// Читаем и конвертируем тело ответа в байты
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println(err)
+		}
+
+		// Конвертируем тело ответа в строку и выводим
+		fmt.Printf("API ответ в форме строки: %s\n", bodyBytes)
+
+		// Вывод статуса ответа (если 200 - то успешный)
+		fmt.Println("Статус ответа:", resp.Status)
+
 	}
 }
 
 func getBanner() {
-	//resp, err := http.Get("http://localhost:8080/banner?tag_id=2&limit=4&offset=2")
-	resp, err := http.Get("http://localhost:8080/banner?feature_id=2&limit=4&offset=0")
-
+	token := Authentication("admin_1", "admin_1")
+	req, err := http.NewRequest("GET", "http://localhost:8080/banner?tag_id=1&limit=4&offset=0", nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("Ошибка при создании запроса:", err)
 		return
 	}
-	defer resp.Body.Close() // закрываем тело ответа после работы с ним
+	// Устанавливаем заголовки запроса
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set("token", token)
 
-	data, err := io.ReadAll(resp.Body) // читаем ответ
+	// Отправляем запрос
+	client := &http.Client{}    // создаем http клиент
+	resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
 	if err != nil {
-		log.Println(err)
+		log.Println("Ошибка при выполнении запроса: ", err)
 		return
 	}
-	fmt.Println(string(data)) // печатаем ответ как строку
+	defer resp.Body.Close() // не забываем закрыть тело
+
+	// Читаем и конвертируем тело ответа в байты
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Конвертируем тело ответа в строку и выводим
+	fmt.Printf("API ответ в форме строки: %s\n", bodyBytes)
+
+	// Вывод статуса ответа (если 200 - то успешный)
+	fmt.Println("Статус ответа:", resp.Status)
 }
 
 func getBannerVersion() {
@@ -103,33 +135,42 @@ func getBannerVersion() {
 }
 
 func getUserBanner() {
-	resp, err := http.Get("http://localhost:8080/user_banner?tag_id=100&feature_id=2&use_last_revision=False")
+	token := Authentication("admin_1", "admin_1")
 
+	// Создаем новый HTTP-запрос с методом POST
+	req, err := http.NewRequest("GET", "http://localhost:8080/user_banner?tag_id=100&feature_id=1&use_last_revision=False", nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("Ошибка при создании запроса:", err)
 		return
 	}
-	defer resp.Body.Close() // закрываем тело ответа после работы с ним
+	// Устанавливаем заголовки запроса
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set("token", token)
 
-	data, err := io.ReadAll(resp.Body) // читаем ответ
+	// Отправляем запрос
+	client := &http.Client{}    // создаем http клиент
+	resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
 	if err != nil {
-		log.Println(err)
+		log.Println("Ошибка при выполнении запроса: ", err)
 		return
 	}
-	fmt.Println(string(data)) // печатаем ответ как строку
+	defer resp.Body.Close() // не забываем закрыть тело
+
+	// Читаем и конвертируем тело ответа в байты
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Конвертируем тело ответа в строку и выводим
+	fmt.Printf("API ответ в форме строки: %s\n", bodyBytes)
+
+	// Вывод статуса ответа (если 200 - то успешный)
+	fmt.Println("Статус ответа:", resp.Status)
 }
 
 func patchBanner() {
-	//test := bn.Banner{
-	//	TagIds: []int64{int64(1), int64(100)},
-	//	//FeatureId: nil,
-	//	Content:  "{\"title\": \"some_title\", \"text\": \"some_text\", \"url\": \"some_url\"}",
-	//	IsActive: false}
-	////Кодируем структуру User в JSON
-	//bytesRepresentation, err := json.Marshal(test)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
+	token := Authentication("admin_1", "admin_1")
 	bytesRepresentation := []byte("{\n\"tag_ids\": [1,100,1000],\n\"feature_id\": 1,\n\"content\": \"{\\\"title\\\": \\\"some_title111\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\",\n\"is_active\": false\n}")
 
 	// Создаем новый HTTP-запрос с методом POST
@@ -140,6 +181,8 @@ func patchBanner() {
 	}
 	// Устанавливаем заголовки запроса
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set("token", token)
+
 	// Отправляем запрос
 	client := &http.Client{}    // создаем http клиент
 	resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
@@ -163,37 +206,43 @@ func patchBanner() {
 }
 
 func delBanner() {
+	token := Authentication("admin_1", "admin_1")
 	// Создаем новый HTTP-запрос с методом POST
-	req, err := http.NewRequest("DELETE", "http://localhost:8080/banner/3", nil)
-	if err != nil {
-		log.Println("Ошибка при создании запроса:", err)
-		return
-	}
-	// Устанавливаем заголовки запроса
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	// Отправляем запрос
-	client := &http.Client{}    // создаем http клиент
-	resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
-	if err != nil {
-		log.Println("Ошибка при выполнении запроса: ", err)
-		return
-	}
-	defer resp.Body.Close() // не забываем закрыть тело
+	for i := 1; i < 6; i++ {
+		req, err := http.NewRequest("DELETE", fmt.Sprintf("http://localhost:8080/banner/%v", i), nil)
 
-	// Читаем и конвертируем тело ответа в байты
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
+		if err != nil {
+			log.Println("Ошибка при создании запроса:", err)
+			return
+		}
+		// Устанавливаем заголовки запроса
+		req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+		req.Header.Set("token", token)
+
+		// Отправляем запрос
+		client := &http.Client{}    // создаем http клиент
+		resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
+		if err != nil {
+			log.Println("Ошибка при выполнении запроса: ", err)
+			return
+		}
+		defer resp.Body.Close() // не забываем закрыть тело
+
+		// Читаем и конвертируем тело ответа в байты
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println(err)
+		}
+
+		// Конвертируем тело ответа в строку и выводим
+		fmt.Printf("API ответ в форме строки: %s\n", bodyBytes)
+
+		// Вывод статуса ответа (если 200 - то успешный)
+		fmt.Println("Статус ответа:", resp.Status)
 	}
-
-	// Конвертируем тело ответа в строку и выводим
-	fmt.Printf("API ответ в форме строки: %s\n", bodyBytes)
-
-	// Вывод статуса ответа (если 200 - то успешный)
-	fmt.Println("Статус ответа:", resp.Status)
 }
 
-func Authentication(username string, password string) {
+func Authentication(username string, password string) (token string) {
 	// Создаем новый HTTP-запрос с методом POST
 	req, err := http.NewRequest("GET", "http://localhost:8080/authentication", nil)
 	if err != nil {
@@ -213,27 +262,19 @@ func Authentication(username string, password string) {
 	}
 	defer resp.Body.Close() // не забываем закрыть тело
 
-	// Читаем и конвертируем тело ответа в байты
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-	}
-
-	// Конвертируем тело ответа в строку и выводим
-	fmt.Printf("API ответ в форме строки: %s\n", bodyBytes)
-	fmt.Printf("API ответ в форме строки: %s\n", resp.Header)
 	// Вывод статуса ответа (если 200 - то успешный)
 	fmt.Println("Статус ответа:", resp.Status)
+	return resp.Header.Get("token")
 }
 
 func main() {
 	load_env()
 	go server()
 	time.Sleep(time.Second * 2)
-	//postBanner()
-	//getBanner()
+	//postBanner()//++
+	//getBanner()//+
 	//patchBanner()
-	//delBanner()
-	//getUserBanner()
-	Authentication("admin_1", "admin_1")
+	//delBanner() //+
+	getUserBanner()
+
 }

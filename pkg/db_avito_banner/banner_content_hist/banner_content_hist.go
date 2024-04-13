@@ -19,20 +19,20 @@ type BannerContentHist struct {
 func (c *BannerContentHist) initVersion(ctx context.Context, tx pgx.Tx) error {
 	query := "select count(1)+1 from avito_banner.banner_content_hist where banner_id = $1"
 	if err := tx.QueryRow(ctx, query, c.BannerId).Scan(&c.Version); err != nil {
-		return err
+		return fmt.Errorf("initVersion ошибка оперделения версии баннера (%v)", err.Error())
 	}
 	return nil
 }
 
-// Create функция для создания контента баннера
-func (c *BannerContentHist) Create(ctx context.Context, tx pgx.Tx) error {
+// Insert функция для создания контента баннера в версионировании
+func (c *BannerContentHist) Insert(ctx context.Context, tx pgx.Tx) error {
 	if err := c.initVersion(ctx, tx); err != nil {
-		return err
+		return fmt.Errorf("Insert (%v)", err.Error())
 	}
 	query := "INSERT INTO avito_banner.banner_content_hist(banner_id, content, version) VALUES ($1, $2, $3) "
 
 	if _, err := tx.Exec(ctx, query, c.BannerId, c.Content, c.Version); err != nil {
-		return err
+		return fmt.Errorf("Insert ошибка создания записи баннера в версионировании (%v)", err.Error())
 	}
 	return nil
 }
@@ -41,7 +41,7 @@ func (c *BannerContentHist) Create(ctx context.Context, tx pgx.Tx) error {
 func DeleteByBannerId(ctx context.Context, tx pgx.Tx, bannerID int64) error {
 	query := "delete from avito_banner.banner_content_hist where banner_id = $1"
 	if _, err := tx.Exec(ctx, query, bannerID); err != nil {
-		return fmt.Errorf("ошибка в процессе удаления контента - %v", err.Error())
+		return fmt.Errorf("DeleteByBannerId: ошибка в процессе удаления контента (%v)", err.Error())
 	}
 	return nil
 }

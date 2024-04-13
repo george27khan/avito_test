@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -14,9 +13,9 @@ func GetToken(userName string, password string, isAdmin bool) (token string, err
 	tokenClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_name": userName,
 		"password":  password,
-		"is_admin":  strconv.FormatBool(isAdmin),
+		"is_admin":  isAdmin,
 		"iat":       time.Now().Unix(),
-		"exp":       time.Now().Add(time.Hour * 24),
+		"exp":       time.Now().Add(time.Hour * 24).Unix(),
 	})
 	if token, err = tokenClaims.SignedString([]byte(secretKey)); err != nil {
 		return

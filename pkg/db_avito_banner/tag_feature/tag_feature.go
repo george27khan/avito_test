@@ -17,12 +17,12 @@ type TagFeauture struct {
 	CreatedDt    time.Time
 }
 
-// Insert функция для добавление записи в таблицу
+// Insert функция для добавление записи в таблицу тегов
 func Insert(ctx context.Context, tx pgx.Tx, tags []int64, feature int64) error {
 	query := "INSERT INTO avito_banner.tag_feature(tag_id, feature_id) VALUES ($1, $2)"
 	for _, tag := range tags {
 		if _, err := tx.Exec(ctx, query, tag, feature); err != nil {
-			return err
+			return fmt.Errorf("Insert ошибка создания записи тега (%v)", err.Error())
 		}
 	}
 	return nil
@@ -41,7 +41,7 @@ func Get(ctx context.Context, conn *pgxpool.Conn, tagId int64, featureId int64) 
 	return tf, nil
 }
 
-// DeleteByBannerId функция для удаления записи из таблицы DeleteByBannerId
+// DeleteByBannerId функция удаления тегов баннера
 func DeleteByBannerId(ctx context.Context, tx pgx.Tx, bannerId int64) error {
 	query := "delete from avito_banner.tag_feature " +
 		" where tag_feature_id in (select tf.tag_feature_id " +
@@ -49,7 +49,7 @@ func DeleteByBannerId(ctx context.Context, tx pgx.Tx, bannerId int64) error {
 		"join avito_banner.tag_feature tf on tf.feature_id = b.feature_id " +
 		"where b.banner_id = $1)"
 	if _, err := tx.Exec(ctx, query, bannerId); err != nil {
-		return fmt.Errorf("ошибка в процессе удаления тэга - %v", err.Error())
+		return fmt.Errorf("DeleteByBannerId: ошибка в процессе удаления тэга (%v)", err.Error())
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func CheckData(ctx context.Context, tags []int64, feature int64) error {
 	return nil
 }
 
-// MergeTags функция обновления данных банера
+// MergeTags функция обновления данных банера о тегах
 func MergeTags(ctx context.Context, tx pgx.Tx, tagIds []int64, feature int64, bannerId int64) error {
 	var tag TagFeauture
 	tagIdsMap := make(map[int64]bool)
@@ -109,13 +109,14 @@ func MergeTags(ctx context.Context, tx pgx.Tx, tagIds []int64, feature int64, ba
 		"where b.banner_id = $1"
 	rows, err := tx.Query(ctx, query, bannerId)
 	if err != nil {
-		return err
+		return fmt.Errorf("в MergeTags ошибка проверки существования тега (%v)", err.Error())
 	}
 	defer rows.Close()
+
 	//тэги на отвязку
 	for rows.Next() {
 		if err = rows.Scan(&tag.TagFeatureId, &tag.TagId, &tag.FeatureId, &tag.IsActive); err != nil {
-			return fmt.Errorf("ошибка чтения данных из таблицы tag_feature %v", err.Error())
+			return fmt.Errorf("в MergeTags ошибка чтения данных из таблицы tag_feature %v", err.Error())
 		}
 		//если тэг из нового списка не активен, то активируем
 		if _, ok := tagIdsMap[tag.TagId]; ok {
@@ -129,18 +130,19 @@ func MergeTags(ctx context.Context, tx pgx.Tx, tagIds []int64, feature int64, ba
 			tagFeatureActive[tag.TagFeatureId] = false
 		}
 	}
+
 	//актуализируем активность тегов
 	for tagFeatureId, isActive := range tagFeatureActive {
 		fmt.Println(tagFeatureId, isActive)
 		if err := Activate(ctx, tx, tagFeatureId, isActive); err != nil {
-			return fmt.Errorf("ошибка при актуализации тегов %v", err.Error())
+			return fmt.Errorf("в MergeTags ошибка при актуализации тега %v", err.Error())
 		}
 	}
 	//добавление новых тэгов
 	for tag, isExist := range tagIdsMap {
 		if !isExist {
 			if err := Insert(ctx, tx, []int64{tag}, feature); err != nil {
-				return fmt.Errorf("ошибка при актуализации тегов %v", err.Error())
+				return fmt.Errorf("в MergeTags ошибка при создании тега %v", err.Error())
 			}
 		}
 	}

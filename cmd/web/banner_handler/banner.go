@@ -9,6 +9,7 @@ import (
 	usr "avito_test/pkg/db_avito_banner/user"
 	"avito_test/pkg/redis"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 	"time"
 )
 
-const cashExpiration time.Duration = time.Minute * 5
+const cashExpiration = time.Minute * 5
 
 type PostBody struct {
 	TagIds    []int64     `json:"tag_ids"`
@@ -33,6 +34,12 @@ type BannerLink struct {
 	IsActive  *bool   `json:"is_active"`
 }
 
+// ContentCash структура для хранения кешированных данных
+type ContentCash struct {
+	content  string `json:"content"`
+	isActive bool   `json:"is_active"`
+}
+
 func toInt(val string) (int64, error) {
 	res, err := strconv.ParseInt(val, 10, 64)
 	return res, err
@@ -40,7 +47,7 @@ func toInt(val string) (int64, error) {
 
 // GetBannerVersion добавление баннера
 func GetBannerVersion(c *gin.Context) {
-	var useLastVerisionBool bool
+	var useLastVersionBool bool
 	ctx := context.Background()
 	conn, err := db.ConnectPool(ctx)
 	if err != nil {
@@ -52,9 +59,8 @@ func GetBannerVersion(c *gin.Context) {
 	//чтение параметров
 	feature := c.Query("feature_id")
 	tag := c.Query("tag_id")
-	useLastVerision := c.Query("use_last_revision")
-	token := c.GetHeader("token")
-	fmt.Println(feature, tag, useLastVerision, token)
+	useLastVersion := c.Query("use_last_revision")
+	//token := c.GetHeader("token")
 
 	//валидация параметров
 	if tag == "" || feature == "" {
@@ -71,18 +77,18 @@ func GetBannerVersion(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "некорректный тип параметра feature_id"})
 		return
 	}
-	if useLastVerision != "" {
-		useLastVerisionBool, err = strconv.ParseBool(useLastVerision)
+	if useLastVersion != "" {
+		useLastVersionBool, err = strconv.ParseBool(useLastVersion)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "некорректный тип параметра use_last_revision"})
 			return
 		}
 	} else {
-		useLastVerisionBool = false
+		useLastVersionBool = false
 	}
 
 	//попытка чтения из кеша
-	if !useLastVerisionBool {
+	if !useLastVersionBool {
 		if content := redis.Get(ctx, tag+"_"+feature+"_all"); content != "" {
 			fmt.Println("cash")
 			c.JSON(http.StatusOK, content)
@@ -106,7 +112,11 @@ func GetBannerVersion(c *gin.Context) {
 
 // GetUserBanner получение баннера
 func GetUserBanner(c *gin.Context) {
-	var useLastVerisionBool bool
+	var (
+		useLastVerisionBool bool
+		contentCash         ContentCash
+	)
+
 	ctx := context.Background()
 	conn, err := db.ConnectPool(ctx)
 	if err != nil {
@@ -116,11 +126,10 @@ func GetUserBanner(c *gin.Context) {
 	defer conn.Release()
 
 	//чтение параметров
+	isAdmin := c.MustGet("is_admin").(bool)
 	feature := c.Query("feature_id")
 	tag := c.Query("tag_id")
 	useLastVerision := c.Query("use_last_revision")
-	token := c.GetHeader("token")
-	fmt.Println(feature, tag, useLastVerision, token)
 
 	//валидация параметров
 	if tag == "" || feature == "" {
@@ -149,39 +158,60 @@ func GetUserBanner(c *gin.Context) {
 
 	//попытка чтения из кеша
 	if !useLastVerisionBool {
-		if content := redis.Get(ctx, tag+"_"+feature); content != "" {
+		if contentCashJSON := redis.Get(ctx, tag+"_"+feature); contentCashJSON != "" {
 			fmt.Println("cash")
-			c.JSON(http.StatusOK, content)
+			if err := json.Unmarshal([]byte(contentCashJSON), &contentCash); err == nil {
+				//проверка доступа на получение данных
+				if !isAdmin && !contentCash.isActive {
+					c.Status(http.StatusForbidden)
+					return
+				}
+				c.JSON(http.StatusOK, contentCash.content)
+				return
+			}
 		}
 	}
+
 	//чтение из базы
 	content, isActive, err := bn.GetContentByTagFeature(ctx, conn, tagInt, featureInt)
 	if err != nil {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	//нет доступа
-	if !isActive {
+	//проверка доступа на получение данных
+	if !isAdmin && !isActive {
 		c.Status(http.StatusForbidden)
 		return
 	}
+
 	//кэшируем результат
-	redis.Set(ctx, tag+"_"+feature, content, cashExpiration)
+	contentCashJSON, _ := json.Marshal(ContentCash{content: content, isActive: isActive})
+	redis.Set(ctx, tag+"_"+feature, string(contentCashJSON), cashExpiration)
 	c.JSON(http.StatusOK, content)
 }
 
 // PostBanner добавление баннера
 func PostBanner(c *gin.Context) {
 	var banner bn.Banner
+
+	//проверка доступа
+	isAdmin := c.MustGet("is_admin")
+	if !isAdmin.(bool) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
 	if err := c.ShouldBindJSON(&banner); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Ошибка разбора данных из тела запроса (%v)", err.Error())})
+		return
+	}
+	//проверим существует ли такой баннер в базе
+	if err := banner.CheckTagFeature(context.Background()); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := banner.CheckTag(context.Background()); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	bannerId, err := banner.Create(context.Background())
+
+	bannerId, err := banner.Insert(context.Background())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -189,17 +219,25 @@ func PostBanner(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"banner_id": bannerId})
 }
 
-// GetBanner добавление баннера
+// GetBanner запрос всех баннеров по тегу и/или фиче
 func GetBanner(c *gin.Context) {
 	var (
-		bannerList []bn.Banner
+		bannerList                              []bn.Banner
+		tagInt, featureInt, limitInt, offsetInt int64
+		err                                     error
 	)
+
+	//проверка доступа
+	isAdmin := c.MustGet("is_admin")
+	if !isAdmin.(bool) {
+		c.Status(http.StatusForbidden)
+		return
+	}
 
 	feature := c.Query("feature_id")
 	tag := c.Query("tag_id")
 	limit := c.Query("limit")
 	offset := c.Query("offset")
-	//token := c.GetHeader("token")
 
 	if tag != "" && feature != "" {
 		tagInt, err1 := toInt(tag)
@@ -215,20 +253,16 @@ func GetBanner(c *gin.Context) {
 			}
 		}
 	} else if tag != "" {
-		var (
-			tagInt, limitInt, offsetInt int64
-			err                         error
-		)
 		if tagInt, err = toInt(tag); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный tag_id=%v - %v", tag, err.Error())})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный tag_id=%v: %v", tag, err.Error())})
 			return
 		}
 		if limitInt, err = toInt(limit); err != nil && limit != "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный limit=%v - %v", limit, err.Error())})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный limit=%v: %v", limit, err.Error())})
 			return
 		}
 		if offsetInt, err = toInt(offset); err != nil && offset != "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный offset=%v - %v", offset, err.Error())})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный offset=%v: %v", offset, err.Error())})
 			return
 		}
 		if bannerList, err := bn.GetByTag(context.Background(), tagInt, limitInt, offsetInt); err != nil {
@@ -239,20 +273,16 @@ func GetBanner(c *gin.Context) {
 			return
 		}
 	} else if feature != "" {
-		var (
-			featureInt, limitInt, offsetInt int64
-			err                             error
-		)
 		if featureInt, err = toInt(feature); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный feature_id=%v - %v", feature, err.Error())})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный feature_id=%v - %v", feature, err.Error())})
 			return
 		}
 		if limitInt, err = toInt(limit); err != nil && limit != "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный limit=%v - %v", limit, err.Error())})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный limit=%v - %v", limit, err.Error())})
 			return
 		}
 		if offsetInt, err = toInt(offset); err != nil && offset != "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Передан некорректный offset=%v - %v", offset, err.Error())})
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный offset=%v - %v", offset, err.Error())})
 			return
 		}
 		if bannerList, err := bn.GetByFeature(context.Background(), featureInt, limitInt, offsetInt); err != nil {
@@ -265,32 +295,41 @@ func GetBanner(c *gin.Context) {
 	}
 }
 
-// PatchBanner изменение баннера
+// PatchBanner изменение информации о баннере
 func PatchBanner(c *gin.Context) {
 	var bannerLink BannerLink
+
+	//проверка доступа
+	isAdmin := c.MustGet("is_admin")
+	if !isAdmin.(bool) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
 	ctx := context.Background()
 	conn, tx, err := db.ConnectPoolTrx(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Ошибка подключения к БД (%v)", err.Error())})
 		return
 	}
 	defer conn.Release()
 	defer func() {
 		if err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 
 		} else {
-			tx.Commit(ctx)
+			_ = tx.Commit(ctx)
 		}
 	}()
+
 	bannerId, err := toInt(c.Params.ByName("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Передан некорректный id (%v)", err.Error())})
 		return
 	}
 	//чтение тала запроса
 	if err = c.ShouldBindJSON(&bannerLink); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Некорректне данные в теле запроса (%v)", err.Error())})
 		return
 	}
 
@@ -319,7 +358,6 @@ func PatchBanner(c *gin.Context) {
 			return
 		}
 	}
-
 	if bannerLink.Content != nil && banner.Content != *bannerLink.Content {
 		if err = banner.UpdateField(ctx, tx, "content", bannerLink.Content); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -327,6 +365,7 @@ func PatchBanner(c *gin.Context) {
 		}
 	}
 
+	//актуализируем теги
 	if bannerLink.FeatureId != nil && bannerLink.TagIds != nil {
 		if err = tf.MergeTags(ctx, tx, bannerLink.TagIds, *bannerLink.FeatureId, bannerId); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -336,26 +375,33 @@ func PatchBanner(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// DeleteBanner изменение баннера
+// DeleteBanner удаление баннера
 func DeleteBanner(c *gin.Context) {
+	//проверка доступа
+	isAdmin := c.MustGet("is_admin")
+	if !isAdmin.(bool) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
 	ctx := context.Background()
 	conn, tx, err := db.ConnectPoolTrx(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Ошибка подключения к БД (%v)", err.Error())})
 		return
 	}
 	defer conn.Release()
 	defer func() {
 		if err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 
 		} else {
-			tx.Commit(ctx)
+			_ = tx.Commit(ctx)
 		}
 	}()
 	bannerId, err := toInt(c.Params.ByName("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("некорректный идентификатор баннера: %v", err.Error())})
 		return
 	}
 	//проверка существования bannerId
@@ -378,7 +424,7 @@ func DeleteBanner(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.String(http.StatusNoContent, "Баннер для тэга не найден")
+	c.Status(http.StatusNoContent)
 }
 
 func GetToken(c *gin.Context) {
@@ -404,38 +450,25 @@ func GetToken(c *gin.Context) {
 	}
 }
 
-func Middleware(c *gin.Context) {
-	authHeader := c.GetHeader("token")
-	fmt.Println("Middleware")
-
-	if authHeader == "" {
+func Auth(c *gin.Context) {
+	token := c.GetHeader("token")
+	if token == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
-	//
-	//headerParts := strings.Split(authHeader, " ")
-	//if len(headerParts) != 2 {
-	//	c.AbortWithStatus(http.StatusUnauthorized)
-	//	return
-	//}
-	//
-	//if headerParts[0] != "Bearer" {
-	//	c.AbortWithStatus(http.StatusUnauthorized)
-	//	return
-	//}
-	//
-	//err := parser.ParseToken(headerParts[1], SIGNING_KEY)
-	//if err != nil {
-	//	status := http.StatusBadRequest
-	//	if err == auth.ErrInvalidAccessToken {
-	//		status = http.StatusUnauthorized
-	//	}
-	//
-	//	c.AbortWithStatus(status)
-	//	return
-	//}
+
+	claims, err := auth.ParseToken(token)
+	if err != nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	if time.Now().Unix() > int64(claims["exp"].(float64)) {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	c.Set("is_admin", claims["is_admin"])
 }
 
-func AuthenticationMiddleware() gin.HandlerFunc {
-	return Middleware
+func AuthMiddleware() gin.HandlerFunc {
+	return Auth
 }
