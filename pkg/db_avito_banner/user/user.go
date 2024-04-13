@@ -5,30 +5,33 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 	"time"
 )
 
 // User тип для представления записи из таблицы employee
 type User struct {
-	Id        int64
+	UserId    int64
 	UserName  string
+	Password  string
+	IsAdmin   bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 // Insert функция для добавление записи в таблицу
-func (u *User) Insert(ctx context.Context) error {
-	conn, err := db.PGPool.Acquire(ctx)
-	defer conn.Release()
+func (u *User) Insert(ctx context.Context, conn *pgxpool.Conn) error {
+	query := "INSERT INTO avito_banner.user(user_name, password, is_admin) VALUES (@user_name, @password, @is_admin)"
+	hashPwd, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.MinCost)
+	u.Password = string(hashPwd)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	query := "INSERT INTO avito_banner.user(user_name, created_at, updated_at) VALUES (@user_name, @created_at, @updated_at)"
-
 	args := pgx.NamedArgs{
-		"user_name":  u.UserName,
-		"created_at": u.CreatedAt,
-		"updated_at": u.UpdatedAt,
+		"user_name": u.UserName,
+		"password":  u.Password,
+		"is_admin":  u.IsAdmin,
 	}
 	if res, err := conn.Exec(ctx, query, args); err != nil {
 		fmt.Println(err)
@@ -36,7 +39,6 @@ func (u *User) Insert(ctx context.Context) error {
 	} else {
 		fmt.Println(res)
 	}
-
 	return nil
 }
 
@@ -48,9 +50,33 @@ func (u *User) Delete(ctx context.Context) error {
 		return err
 	}
 	query := "delete from avito_banner.user t where t.user_id = $1"
-	_, err = conn.Exec(ctx, query, u.Id)
+	_, err = conn.Exec(ctx, query, u.UserId)
 	if err := conn.Ping(ctx); err != nil {
 		return err
 	}
 	return nil
+}
+
+// Get функция для поиска пользователя
+func Get(ctx context.Context, user_name string) (User, error) {
+	var u User
+	conn, err := db.PGPool.Acquire(ctx)
+	defer conn.Release()
+	if err != nil {
+		return u, err
+	}
+	query := "select user_id, user_name, password, is_admin, created_at, updated_at from avito_banner.user t where t.user_name = $1"
+	if err := conn.QueryRow(ctx, query, user_name).Scan(&u.UserId, &u.UserName, &u.Password, &u.IsAdmin, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		return u, err
+	}
+	return u, nil
+}
+
+// Delete функция для удаления записи из таблицы
+func (u *User) VerifyPassword(password string) (ok bool) {
+	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
+		return
+	}
+	ok = true
+	return
 }

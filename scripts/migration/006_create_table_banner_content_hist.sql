@@ -1,6 +1,5 @@
 -- Write your migrate up statements here
-create table avito_banner."banner_content_hist"
-(
+create table avito_banner."banner_content_hist"(
     id         serial primary key,
     banner_id  bigint not null constraint banner_content_hist_banner_banner_id_fk references avito_banner."banner",
     content    json,

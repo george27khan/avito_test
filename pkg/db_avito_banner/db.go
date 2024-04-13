@@ -51,7 +51,7 @@ func Connect(ctx context.Context) *pgx.Conn {
 func ConnectPool(ctx context.Context) (*pgxpool.Conn, error) {
 	conn, err := PGPool.Acquire(ctx)
 	if err != nil {
-		return conn, err
+		return nil, err
 	}
 	return conn, nil
 }

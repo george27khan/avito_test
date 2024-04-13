@@ -5,7 +5,7 @@ create table avito_banner."tag_feature"
     tag_id          bigint not null,
     feature_id      bigint not null,
     created_at      timestamp default now() not null,
-    is_active       boolean default true not null
+    is_active       boolean default true not null,
         constraint tag_feature_pk
             unique (tag_id, feature_id)
 );

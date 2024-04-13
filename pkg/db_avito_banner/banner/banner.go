@@ -61,15 +61,10 @@ func (b *Banner) Create(ctx context.Context) (int64, error) {
 }
 
 // Delete функция для удаления баннера
-func (b *Banner) Delete(ctx context.Context) error {
-	conn, err := db.PGPool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
+func Delete(ctx context.Context, tx pgx.Tx, bannerId int64) error {
 	query := "delete from avito_banner.banner t where t.banner_id = $1"
-	_, err = conn.Exec(ctx, query, b.BannerId)
-	if err := conn.Ping(ctx); err != nil {
-		return err
+	if _, err := tx.Exec(ctx, query, bannerId); err != nil {
+		return fmt.Errorf("ошибка при удалении банера %v - %v", bannerId, err.Error())
 	}
 	return nil
 }
@@ -125,11 +120,44 @@ func Get(ctx context.Context, conn *pgxpool.Conn, bannerId int64) (banner Banner
 	return
 }
 
+// GetContentByTagFeature функция возращает баннер по тегу и фиче
+func GetContentByTagFeature(ctx context.Context, conn *pgxpool.Conn, tag int64, feature int64) (string, bool, error) {
+	var (
+		content  string
+		isActive bool
+	)
+	query := "select b.content, b.is_active " +
+		"from avito_banner.tag_feature tf " +
+		"join avito_banner.banner b on b.feature_id = tf.feature_id " +
+		"where tf.tag_id = $1 and tf.feature_id = $2"
+	row := conn.QueryRow(ctx, query, tag, feature)
+	if err := row.Scan(&content, &isActive); err != nil {
+		return "", false, fmt.Errorf("баннер для тега %v и фичи %v отсутствует", tag, feature)
+	}
+	return content, isActive, nil
+}
+
+// GetAllContentByTagFeature функция возращает все версии баннера по тегу и фиче
+func GetAllContentByTagFeature(ctx context.Context, conn *pgxpool.Conn, tag int64, feature int64) (string, bool, error) {
+	var (
+		content  string
+		isActive bool
+	)
+	query := "select json_agg(b.content, h.version), b.is_active " +
+		"from avito_banner.tag_feature tf " +
+		"join avito_banner.banner b on b.feature_id = tf.feature_id " +
+		"join avito_banner.banner_content_hist h on h.banner_id = b.banner_id " +
+		"where tf.tag_id = $1 and tf.feature_id = $2"
+	row := conn.QueryRow(ctx, query, tag, feature)
+	if err := row.Scan(&content, &isActive); err != nil {
+		return "", false, fmt.Errorf("баннер для тега %v и фичи %v отсутствует", tag, feature)
+	}
+	return content, isActive, nil
+}
+
 // GetByTagFeature функция возращает баннер по тегу и фиче
 func GetByTagFeature(ctx context.Context, tag int64, feature int64) (Banner, error) {
-	var (
-		banner Banner
-	)
+	var banner Banner
 	conn, err := db.PGPool.Acquire(ctx)
 	if err != nil {
 		return banner, err

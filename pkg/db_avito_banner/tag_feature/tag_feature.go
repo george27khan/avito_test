@@ -41,16 +41,16 @@ func Get(ctx context.Context, conn *pgxpool.Conn, tagId int64, featureId int64) 
 	return tf, nil
 }
 
-// Delete функция для удаления записи из таблицы
-func (tf *TagFeauture) Delete(ctx context.Context) error {
-	conn, err := db.PGPool.Acquire(ctx)
-	if err != nil {
-		return err
+// DeleteByBannerId функция для удаления записи из таблицы DeleteByBannerId
+func DeleteByBannerId(ctx context.Context, tx pgx.Tx, bannerId int64) error {
+	query := "delete from avito_banner.tag_feature " +
+		" where tag_feature_id in (select tf.tag_feature_id " +
+		"from avito_banner.banner b " +
+		"join avito_banner.tag_feature tf on tf.feature_id = b.feature_id " +
+		"where b.banner_id = $1)"
+	if _, err := tx.Exec(ctx, query, bannerId); err != nil {
+		return fmt.Errorf("ошибка в процессе удаления тэга - %v", err.Error())
 	}
-	defer conn.Release()
-
-	query := "delete from avito_banner.tag_feature t where t.tag_feature_id = $1"
-	_, err = conn.Exec(ctx, query, tf.TagFeatureId)
 	return nil
 }
 

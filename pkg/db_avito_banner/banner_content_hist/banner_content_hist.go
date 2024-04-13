@@ -2,6 +2,7 @@ package banner_content_hist
 
 import (
 	"context"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"time"
 )
@@ -32,6 +33,15 @@ func (c *BannerContentHist) Create(ctx context.Context, tx pgx.Tx) error {
 
 	if _, err := tx.Exec(ctx, query, c.BannerId, c.Content, c.Version); err != nil {
 		return err
+	}
+	return nil
+}
+
+// DeleteByBannerId функция для удаления контента баннера
+func DeleteByBannerId(ctx context.Context, tx pgx.Tx, bannerID int64) error {
+	query := "delete from avito_banner.banner_content_hist where banner_id = $1"
+	if _, err := tx.Exec(ctx, query, bannerID); err != nil {
+		return fmt.Errorf("ошибка в процессе удаления контента - %v", err.Error())
 	}
 	return nil
 }
