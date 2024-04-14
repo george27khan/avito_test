@@ -1,11 +1,10 @@
-package postgres_db
+package connection
 
 import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/tern/v2/migrate"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
@@ -78,68 +77,11 @@ func ConnectPoolTrx(ctx context.Context) (*pgxpool.Conn, pgx.Tx, error) {
 	return conn, tx, nil
 }
 
-func getMigrator(ctx context.Context, conn *pgx.Conn) *migrate.Migrator {
-	migrator, err := migrate.NewMigrator(ctx, conn, "avito_test")
-	if err != nil {
-		fmt.Printf("Unable to create a migrator: %v\n", err)
-	}
-
-	err = migrator.LoadMigrations(os.DirFS("./scripts/migration"))
-	if err != nil {
-		fmt.Printf("Unable to load migrations: %v\n", err)
-	}
-	return migrator
-}
-
-func InitDB() {
-	ctx := context.Background()
-	conn := Connect(ctx)
-	defer conn.Close(ctx)
-
-	migrator := getMigrator(ctx, conn)
-
-	err := migrator.Migrate(ctx)
-	if err != nil {
-		fmt.Printf("Unable to migrate: %v\n", err)
-	}
-
-	ver, err := migrator.GetCurrentVersion(ctx)
-	if err != nil {
-		fmt.Printf("Unable to get current schema version: %v\n", err)
-	}
-
-	fmt.Printf("Migration done. Current schema version: %v\n", ver)
-}
-
-func DropDB() {
-	ctx := context.Background()
-	conn := Connect(ctx)
-	defer conn.Close(ctx)
-
-	migrator := getMigrator(ctx, conn)
-
-	err := migrator.MigrateTo(ctx, 0)
-	if err != nil {
-		fmt.Printf("Unable to migrate: %v\n", err)
-	}
-
-	ver, err := migrator.GetCurrentVersion(ctx)
-	if err != nil {
-		fmt.Printf("Unable to get current schema version: %v\n", err)
-	}
-
-	fmt.Printf("Migration done. Current schema version: %v\n", ver)
-}
-
+// создание пула соединений при запуске приложения
 func init() {
 	var err error
 	PGPool, err = Pool(context.Background())
 	if err != nil {
 		fmt.Println(err)
 	}
-}
-
-func main() {
-	//InitDB()
-	DropDB()
 }

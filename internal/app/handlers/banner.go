@@ -1,13 +1,12 @@
 package handlers
 
 import (
-	db "avito_test/pkg/postgres_db"
 	bn "avito_test/pkg/postgres_db/banner"
 	bch "avito_test/pkg/postgres_db/banner_content_hist"
+	db "avito_test/pkg/postgres_db/connection"
 	tf "avito_test/pkg/postgres_db/tag_feature"
 	"avito_test/pkg/redis"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -111,10 +110,7 @@ func GetBannerVersion(c *gin.Context) {
 
 // GetUserBanner получение баннера
 func GetUserBanner(c *gin.Context) {
-	var (
-		useLastVerisionBool bool
-		contentCash         ContentCash
-	)
+	var useLastVerisionBool bool
 
 	ctx := context.Background()
 	conn, err := db.ConnectPool(ctx)
@@ -129,7 +125,6 @@ func GetUserBanner(c *gin.Context) {
 	feature := c.Query("feature_id")
 	tag := c.Query("tag_id")
 	useLastVerision := c.Query("use_last_revision")
-
 	//валидация параметров
 	if tag == "" || feature == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "не переданны обязательные параметры для запроса"})
@@ -157,17 +152,17 @@ func GetUserBanner(c *gin.Context) {
 
 	//попытка чтения из кеша
 	if !useLastVerisionBool {
-		if contentCashJSON := redis.Get(ctx, tag+"_"+feature); contentCashJSON != "" {
-			fmt.Println("cash")
-			if err := json.Unmarshal([]byte(contentCashJSON), &contentCash); err == nil {
-				//проверка доступа на получение данных
-				if !isAdmin && !contentCash.isActive {
-					c.Status(http.StatusForbidden)
-					return
-				}
-				c.JSON(http.StatusOK, contentCash.content)
+		content := redis.Get(ctx, tag+"_"+feature+"_content")
+		isActive := redis.Get(ctx, tag+"_"+feature+"_active")
+		if content != "" && isActive != "" {
+			//проверка доступа на получение данных
+			if !isAdmin && isActive == "false" {
+				c.Status(http.StatusForbidden)
 				return
 			}
+			fmt.Println("cash")
+			c.JSON(http.StatusOK, content)
+			return
 		}
 	}
 
@@ -184,8 +179,9 @@ func GetUserBanner(c *gin.Context) {
 	}
 
 	//кэшируем результат
-	contentCashJSON, _ := json.Marshal(ContentCash{content: content, isActive: isActive})
-	redis.Set(ctx, tag+"_"+feature, string(contentCashJSON), cashExpiration)
+	redis.Set(ctx, tag+"_"+feature+"_content", content, cashExpiration)
+	redis.Set(ctx, tag+"_"+feature+"_active", strconv.FormatBool(isActive), cashExpiration)
+
 	c.JSON(http.StatusOK, content)
 }
 

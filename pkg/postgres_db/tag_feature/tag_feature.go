@@ -1,7 +1,7 @@
 package tag_feature
 
 import (
-	db "avito_test/pkg/postgres_db"
+	db "avito_test/pkg/postgres_db/connection"
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"

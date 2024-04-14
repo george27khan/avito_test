@@ -1,8 +1,7 @@
-package tests
+package banner_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
@@ -19,7 +18,6 @@ func Authentication(username string, password string) (token string) {
 		return
 	}
 	req.SetBasicAuth(username, password)
-	fmt.Println(req.URL)
 	// Устанавливаем заголовки запроса
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	// Отправляем запрос
@@ -35,48 +33,103 @@ func Authentication(username string, password string) (token string) {
 }
 
 func TestUserBannerHandler(t *testing.T) {
-
-	req, err := http.NewRequest("GET", "http://localhost:8080/user_banner?tag_id=100&feature_id=1&use_last_revision=True", nil)
-	token := Authentication("admin_1", "admin_1")
-	if err != nil {
-		log.Println("Ошибка при создании запроса:", err)
-		return
+	testCases := map[string]map[string]interface{}{
+		"success_active_banner": {"username": "user_1",
+			"password":          "user_1",
+			"tag_id":            "2",
+			"feature_id":        "1",
+			"use_last_revision": "true",
+			"expected_body":     "\"{\\\"title\\\": \\\"title1\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusOK,
+		},
+		"success_active_banner_cash": {"username": "user_1",
+			"password":          "user_1",
+			"tag_id":            "2",
+			"feature_id":        "1",
+			"use_last_revision": "false",
+			"expected_body":     "\"{\\\"title\\\": \\\"title1\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusOK,
+		},
+		"empty_use_last_revision": {"username": "admin_1",
+			"password":          "admin_1",
+			"tag_id":            "11",
+			"feature_id":        "10",
+			"use_last_revision": "",
+			"expected_body":     "\"{\\\"title\\\": \\\"title10\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusOK,
+		},
+		"success_noactive_banner_admin": {"username": "admin_1",
+			"password":          "admin_1",
+			"tag_id":            "11",
+			"feature_id":        "10",
+			"use_last_revision": "true",
+			"expected_body":     "\"{\\\"title\\\": \\\"title10\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusOK,
+		},
+		"success_noactive_banner": {"username": "user_1",
+			"password":          "user_1",
+			"tag_id":            "11",
+			"feature_id":        "10",
+			"use_last_revision": "true",
+			"expected_body":     "\"{\\\"title\\\": \\\"title10\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusForbidden,
+		},
+		"bad_tag_id": {"username": "admin_1",
+			"password":          "admin_1",
+			"tag_id":            "",
+			"feature_id":        "10",
+			"use_last_revision": "true",
+			"expected_body":     "\"{\\\"title\\\": \\\"title10\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusBadRequest,
+		},
+		"bad_feature_id": {"username": "admin_1",
+			"password":          "admin_1",
+			"tag_id":            "11",
+			"feature_id":        "",
+			"use_last_revision": "true",
+			"expected_body":     "\"{\\\"title\\\": \\\"title10\\\", \\\"text\\\": \\\"some_text\\\", \\\"url\\\": \\\"some_url\\\"}\"",
+			"expected_status":   http.StatusBadRequest,
+		},
 	}
-	// Устанавливаем заголовки запроса
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Set("token", token)
-	// Мы создаем ResponseRecorder(реализует интерфейс http.ResponseWriter)
-	// и используем его для получения ответа
-	//rr := httptest.NewRecorder()
-	//
-	//// Наш хендлер соответствует интерфейсу http.Handler, а значит
-	//// мы можем использовать ServeHTTP и напрямую указать
-	//// Request и ResponseRecorder
-	//http.DefaultServeMux.ServeHTTP(rr, req) // Проверяем код
-	//responseData, _ := io.ReadAll(rr.Body)
-	//fmt.Println(string(responseData))
+	client := &http.Client{} // создаем http клиент
+	for test, params := range testCases {
+		var bannerResp, bannerExp interface{}
 
-	// Отправляем запрос
-	client := &http.Client{}    // создаем http клиент
-	resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
-	if err != nil {
-		log.Println("Ошибка при выполнении запроса: ", err)
-		return
+		req, err := http.NewRequest("GET", "http://localhost:8080/user_banner", nil)
+		q := req.URL.Query()
+
+		q.Add("tag_id", params["tag_id"].(string))
+		q.Add("feature_id", params["feature_id"].(string))
+		q.Add("use_last_revision", params["use_last_revision"].(string))
+		req.URL.RawQuery = q.Encode()
+		os.Stdout.Write([]byte(req.URL.String()))
+
+		token := Authentication(params["username"].(string), params["password"].(string))
+		if err != nil {
+			log.Println("Ошибка при создании запроса:", err)
+			return
+		}
+		// Устанавливаем заголовки запроса
+		req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+		req.Header.Set("token", token)
+		// Отправляем запрос
+		resp, err := client.Do(req) // передаем выше подготовленный запрос на отправку
+		if err != nil {
+			log.Println("Ошибка при выполнении запроса: ", err)
+			return
+		}
+		defer resp.Body.Close() // не забываем закрыть тело
+		// Читаем и конвертируем тело ответа в байты
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println(err)
+		}
+
+		if test != "success_noactive_banner" && test != "bad_tag_id" && test != "bad_feature_id" {
+			json.Unmarshal(bodyBytes, &bannerResp)
+			json.Unmarshal([]byte(params["expected_body"].(string)), &bannerExp)
+			assert.Equal(t, bannerResp, bannerExp)
+		}
+		assert.Equal(t, params["expected_status"].(int), resp.StatusCode)
 	}
-	defer resp.Body.Close() // не забываем закрыть тело
-
-	// Читаем и конвертируем тело ответа в байты
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-	}
-	os.Stdout.Write(bodyBytes)
-	//os.Stdout.Write([]byte())
-	var t1, t2 interface{}
-	json.Unmarshal(bodyBytes, &t1)
-	json.Unmarshal([]byte("{\"title\": \"some_title111\", \"text\": \"some_text\", \"url\": \"some_url\"}"), &t2)
-	assert.Equal(t, t1, t1)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	// Конвертируем тело ответа в строку и выводим
-
 }

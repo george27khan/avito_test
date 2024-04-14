@@ -138,7 +138,7 @@ func getUserBanner() {
 	token := Authentication("admin_1", "admin_1")
 
 	// Создаем новый HTTP-запрос с методом POST
-	req, err := http.NewRequest("GET", "http://localhost:8080/user_banner?tag_id=100&feature_id=1&use_last_revision=False", nil)
+	req, err := http.NewRequest("GET", "http://localhost:8080/user_banner?tag_id=2&feature_id=1&use_last_revision=False", nil)
 	if err != nil {
 		log.Println("Ошибка при создании запроса:", err)
 		return
@@ -250,7 +250,6 @@ func Authentication(username string, password string) (token string) {
 		return
 	}
 	req.SetBasicAuth(username, password)
-	fmt.Println(req.URL)
 	// Устанавливаем заголовки запроса
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	// Отправляем запрос
@@ -261,7 +260,6 @@ func Authentication(username string, password string) (token string) {
 		return
 	}
 	defer resp.Body.Close() // не забываем закрыть тело
-
 	// Вывод статуса ответа (если 200 - то успешный)
 	fmt.Println("Статус ответа:", resp.Status)
 	return resp.Header.Get("token")
@@ -275,6 +273,5 @@ func main() {
 	//getBanner()//+
 	//patchBanner()
 	//delBanner() //+
-	getUserBanner()
-
+	//getUserBanner()
 }

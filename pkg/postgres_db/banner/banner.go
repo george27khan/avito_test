@@ -1,8 +1,8 @@
 package banner
 
 import (
-	db "avito_test/pkg/postgres_db"
 	bch "avito_test/pkg/postgres_db/banner_content_hist"
+	db "avito_test/pkg/postgres_db/connection"
 	tf "avito_test/pkg/postgres_db/tag_feature"
 	"context"
 	"fmt"
