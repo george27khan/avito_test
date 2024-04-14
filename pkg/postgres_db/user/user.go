@@ -45,10 +45,10 @@ func (u *User) Insert(ctx context.Context, conn *pgxpool.Conn) error {
 // Delete функция для удаления записи из таблицы
 func (u *User) Delete(ctx context.Context) error {
 	conn, err := db.PGPool.Acquire(ctx)
-	defer conn.Release()
 	if err != nil {
 		return err
 	}
+	defer conn.Release()
 	query := "delete from avito_banner.user t where t.user_id = $1"
 	_, err = conn.Exec(ctx, query, u.UserId)
 	if err := conn.Ping(ctx); err != nil {
@@ -61,10 +61,11 @@ func (u *User) Delete(ctx context.Context) error {
 func Get(ctx context.Context, userName string) (User, error) {
 	var u User
 	conn, err := db.PGPool.Acquire(ctx)
-	defer conn.Release()
 	if err != nil {
 		return u, err
 	}
+	defer conn.Release()
+
 	query := "select user_id, user_name, password, is_admin, created_at, updated_at from avito_banner.user t where t.user_name = $1"
 	if err := conn.QueryRow(ctx, query, userName).Scan(&u.UserId, &u.UserName, &u.Password, &u.IsAdmin, &u.CreatedAt, &u.UpdatedAt); err != nil {
 		return u, err

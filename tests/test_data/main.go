@@ -14,7 +14,7 @@ import (
 	"net/http"
 )
 
-func load_env() {
+func loadEnv() {
 	if err := godotenv.Load(".env"); err != nil {
 		log.Print("No .env file found")
 	}
@@ -116,7 +116,6 @@ func createBanners() error {
 			log.Println("Ошибка при выполнении запроса: ", err)
 			return nil
 		}
-		defer resp.Body.Close() // не забываем закрыть тело
 
 		// Читаем и конвертируем тело ответа в байты
 		bodyBytes, err := io.ReadAll(resp.Body)
@@ -130,12 +129,14 @@ func createBanners() error {
 
 		// Вывод статуса ответа (если 200 - то успешный)
 		fmt.Println("Статус ответа:", resp.Status)
+
+		resp.Body.Close() // не забываем закрыть тело
 	}
 	return nil
 }
 
 func main() {
-	load_env()
+	loadEnv()
 	err := createUsers()
 	if err != nil {
 		fmt.Println("err ", err.Error())

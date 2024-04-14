@@ -4,6 +4,7 @@ import (
 	"avito_test/pkg/auth"
 	usr "avito_test/pkg/postgres_db/user"
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
@@ -17,7 +18,10 @@ func GetToken(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
+	fmt.Println("userName, password, ok", userName, password, ok)
 	user, err := usr.Get(ctx, userName)
+	fmt.Println("user, err", user, err)
+
 	if err != nil || !user.VerifyPassword(password) {
 		c.Status(http.StatusUnauthorized)
 		return
@@ -36,6 +40,7 @@ func GetToken(c *gin.Context) {
 // Auth функция аутентификации пользователя
 func Auth(c *gin.Context) {
 	token := c.GetHeader("token")
+	fmt.Println("token", token)
 	if token == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
@@ -46,6 +51,7 @@ func Auth(c *gin.Context) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+	fmt.Println(claims)
 	if time.Now().Unix() > int64(claims["exp"].(float64)) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return

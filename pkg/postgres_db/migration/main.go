@@ -1,4 +1,4 @@
-package migration
+package main
 
 import (
 	db_con "avito_test/pkg/postgres_db/connection"
@@ -24,7 +24,7 @@ func getMigrator(ctx context.Context, conn *pgx.Conn) *migrate.Migrator {
 
 func InitDB() {
 	ctx := context.Background()
-	conn := db_con.Connect(ctx)
+	conn := db_con.ConnectLocal(ctx)
 	defer conn.Close(ctx)
 
 	migrator := getMigrator(ctx, conn)
@@ -44,7 +44,7 @@ func InitDB() {
 
 func DropDB() {
 	ctx := context.Background()
-	conn := db_con.Connect(ctx)
+	conn := db_con.ConnectLocal(ctx)
 	defer conn.Close(ctx)
 
 	migrator := getMigrator(ctx, conn)
@@ -62,7 +62,7 @@ func DropDB() {
 	fmt.Printf("Migration done. Current schema version: %v\n", ver)
 }
 
-func run_migration() {
+func main() {
 	DropDB()
 	InitDB()
 }

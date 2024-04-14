@@ -1,15 +1,18 @@
 version: "1"
 
 services:
-#  app:
-#    build:
-#      dockerfile: Dockerfile
-#      context: ..
-#      #target: dev
-#    ports:
-#      - "3000:3000"
-##    networks:
-##      - postgres
+  app:
+
+    build:
+      dockerfile: Dockerfile
+      #context: ..
+      #target: dev
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    networks:
+      - avito-test-network
   db:
     container_name: postgres
     image: postgres
@@ -25,8 +28,8 @@ services:
       - postgres:/data/postgres
     ports:
       - "5432:5432"
-#    networks:
-#      - postgres
+    networks:
+      - avito-test-network
 
   redis:
     container_name: redis
@@ -40,13 +43,10 @@ services:
     environment:
       - REDIS_REPLICATION_MODE=master
     networks:
-      - redis
+      - avito-test-network
 
 networks:
-  postgres:
-    driver: bridge
-  redis:
-    driver: bridge
-#
+  avito-test-network:
+    name: avito-test-network
 volumes:
   postgres:

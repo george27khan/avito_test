@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"time"
 )
 
 func load_env() {
@@ -34,7 +33,7 @@ func server() {
 	r.PATCH("/banner/:id", handlers.PatchBanner)
 	r.DELETE("/banner/:id", handlers.DeleteBanner)
 
-	r.Run("localhost:8080") //63342
+	r.Run("0.0.0.0:8080") //63342
 }
 
 func postBanner() {
@@ -268,7 +267,7 @@ func Authentication(username string, password string) (token string) {
 func main() {
 	load_env()
 	server()
-	time.Sleep(time.Second * 2)
+	//time.Sleep(time.Second * 2)
 	//postBanner()//++
 	//getBanner()//+
 	//patchBanner()
