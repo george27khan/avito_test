@@ -29,7 +29,7 @@ func getPGconnStr() (connStr string) {
 	return
 }
 
-func getPGconnStrMigr() (connStr string) {
+func getPGconnStrLocal() (connStr string) {
 	// loads DB settings from .env into the system
 	if err := godotenv.Load("./.env"); err != nil {
 		log.Print("No .env file found")
@@ -37,7 +37,7 @@ func getPGconnStrMigr() (connStr string) {
 	dbName := os.Getenv("POSTGRES_DB")
 	dbUser := os.Getenv("POSTGRES_USER")
 	dbPwd := os.Getenv("POSTGRES_PASSWORD")
-	host := "localhost"
+	host := os.Getenv("POSTGRES_HOST_LOCAL")
 
 	//"postgres://username:password@localhost:5432/database_name"
 	connStr = fmt.Sprintf("postgres://%s:%s@%s:5432/%s", dbUser, dbPwd, host, dbName)
@@ -50,11 +50,15 @@ var (
 )
 
 func Pool(ctx context.Context) (*pgxpool.Pool, error) {
-	return pgxpool.New(ctx, getPGconnStrMigr())
+	return pgxpool.New(ctx, getPGconnStr())
+}
+
+func PoolLocal(ctx context.Context) (*pgxpool.Pool, error) {
+	return pgxpool.New(ctx, getPGconnStrLocal())
 }
 
 func ConnectLocal(ctx context.Context) *pgx.Conn {
-	conn, err := pgx.Connect(ctx, getPGconnStrMigr())
+	conn, err := pgx.Connect(ctx, getPGconnStrLocal())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)

@@ -15,6 +15,9 @@ func endRequest(req *http.Request) {
 	// Устанавливаем заголовки запроса
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	req.Header.Set("token", token)
+	fmt.Println(req.Method, req.URL.String())
+	fmt.Println("Headers:", req.Header)
+	fmt.Println("Body:", req.Body)
 
 	// Отправляем запрос
 	client := &http.Client{}    // создаем http клиент
@@ -32,7 +35,7 @@ func endRequest(req *http.Request) {
 	}
 
 	// Конвертируем тело ответа в строку и выводим
-	fmt.Printf("Тело: %s\n", bodyBytes)
+	fmt.Printf("Тело ответа: %s\n", bodyBytes)
 	// Вывод статуса ответа (если 200 - то успешный)
 	fmt.Println("Статус ответа:", resp.Status)
 }
@@ -112,7 +115,6 @@ func Authentication(username string, password string) (token string) {
 	}
 	defer resp.Body.Close() // не забываем закрыть тело
 	// Вывод статуса ответа (если 200 - то успешный)
-	fmt.Println("Статус ответа:", resp.Status)
 	return resp.Header.Get("token")
 }
 

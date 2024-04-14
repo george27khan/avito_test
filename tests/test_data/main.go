@@ -48,16 +48,12 @@ func Authentication(username string, password string) (token string) {
 func createUsers() error {
 	var u user.User
 	ctx := context.Background()
-	conn, tx, err := db.ConnectPoolTrx(ctx)
+	PGPool, err := db.PoolLocal(context.Background())
+	if err != nil {
+		fmt.Println(err)
+	}
+	conn, err := PGPool.Acquire(ctx)
 	defer conn.Release()
-	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-
-		} else {
-			tx.Commit(ctx)
-		}
-	}()
 	if err != nil {
 		return fmt.Errorf("createUsers error - %v", err.Error())
 	}
